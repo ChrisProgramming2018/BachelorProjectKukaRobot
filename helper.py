@@ -50,7 +50,7 @@ class FrameStack(Wrapper):
     def _create_next_obs(self, state):
         state =  cv2.cvtColor(state, cv2.COLOR_BGR2GRAY)
         state = cv2.resize(state,(self.size, self.size))
-        state = torch.tensor(state, dtype=torch.int8, device=self.device)
+        state = torch.tensor(state, dtype=torch.uint8, device=self.device)
         self.state_buffer.append(state)
         state = torch.stack(list(self.state_buffer), 0)
         state = state.cpu()
@@ -61,7 +61,7 @@ class FrameStack(Wrapper):
     def _stacked_frames(self, state):
         state =  cv2.cvtColor(state, cv2.COLOR_BGR2GRAY)
         state = cv2.resize(state,(self.size, self.size))
-        state = torch.tensor(state, dtype=torch.int8, device=self.device)
+        state = torch.tensor(state, dtype=torch.uint8, device=self.device)
         zeros = torch.zeros_like(state)
         for idx in range(self.history_length - 1):
             self.state_buffer.append(zeros)
