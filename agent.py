@@ -6,34 +6,34 @@ import numpy as np
 from tqc_models import Actor, Critic, Encoder, quantile_huber_loss_f
 import torch.nn as nn
 import torch.nn.functional as F
-
+from helper import mkdir
 
 
 # Building the whole Training Process into a class
 
 class TQC(object):
-    def __init__(self, state_dim, action_dim, actor_input_dim, args):
-        input_dim = [args.history_length, args.size, args.size]
-        self.actor = Actor(state_dim, action_dim, args).to(args.device)
-        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), args.lr_actor)        
-        self.critic = Critic(state_dim, action_dim, args).to(args.device)
-        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), args.lr_critic)
-        self.target_critic = Critic(state_dim, action_dim, args).to(args.device)
+    def __init__(self, state_dim, action_dim, actor_input_dim, config):
+        input_dim = [config["history_length"], config["size"], config["size"]]
+        self.actor = Actor(state_dim, action_dim, config).to(config["device"])
+        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), config["lr_actor"])        
+        self.critic = Critic(state_dim, action_dim, config).to(config["device"])
+        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), config["lr_critic"])
+        self.target_critic = Critic(state_dim, action_dim, config).to(config["device"])
         self.target_critic.load_state_dict(self.critic.state_dict())
-        self.encoder = Encoder(args).to(args.device)
-        self.encoder_optimizer = torch.optim.Adam(self.encoder.parameters(), args.lr_encoder)
-        self.target_encoder = Encoder(args).to(args.device)
+        self.encoder = Encoder(config).to(config["device"])
+        self.encoder_optimizer = torch.optim.Adam(self.encoder.parameters(), config["lr_encoder"])
+        self.target_encoder = Encoder(config).to(config["device"])
         self.target_encoder.load_state_dict(self.encoder.state_dict())
-        self.batch_size = int(args.batch_size)
-        self.discount = args.discount
-        self.tau = args.tau 
-        self.device = args.device
+        self.batch_size = int(config["batch_size"])
+        self.discount = config["discount"]
+        self.tau = config["tau"]
+        self.device = config["device"]
         self.write_tensorboard = False
-        self.top_quantiles_to_drop = args.top_quantiles_to_drop_per_net * args.n_nets * 2
-        self.target_entropy = args.target_entropy 
+        self.top_quantiles_to_drop = config["top_quantiles_to_drop_per_net"] * config["n_nets"] * 2
+        self.target_entropy = config["target_entropy"]
         self.quantiles_total = self.critic.n_quantiles * self.critic.n_nets * 2
-        self.log_alpha = torch.zeros((1,), requires_grad=True, device=args.device)
-        self.alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=args.lr_alpha)
+        self.log_alpha = torch.zeros((1,), requires_grad=True, device=config["device"])
+        self.alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=config["lr_alpha"])
         self.total_it = 0
         self.step = 0
 
@@ -146,6 +146,7 @@ class TQC(object):
         return loss
 
     def save(self, filename):
+        mkdir("", filename)
         torch.save(self.critic.state_dict(), filename + "_critic")
         torch.save(self.critic_optimizer.state_dict(), filename + "_critic_optimizer")
                 

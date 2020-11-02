@@ -1,6 +1,6 @@
 {
   "env_name": "kuka_block_grasping-v0",
-  "locexp": "/experiments/test",
+  "locexp": "experiments/test",
   "seed": 2,
   "start_timesteps": 1000,
   "eval_freq": 1000,

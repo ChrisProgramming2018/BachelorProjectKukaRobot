@@ -1,9 +1,10 @@
-from collections import deque
-import numpy as np
+import os
 import cv2
 import torch
+import numpy as np
 from gym.spaces import Box
 from gym import Wrapper
+from collections import deque
 
 
 
@@ -29,13 +30,13 @@ class FrameStack(Wrapper):
         num_stack (int): number of stacks
         lz4_compress (bool): use lz4 to compress the frames internally
     """
-    def __init__(self, env, args):
+    def __init__(self, env, config):
         super(FrameStack, self).__init__(env)
-        self.state_buffer = deque([], maxlen=args.history_length)
+        self.state_buffer = deque([], maxlen=config["history_length"])
         self.env = env
-        self.size = args.size
-        self.device = args.device
-        self.history_length = args.history_length
+        self.size = config["size"]
+        self.device = config["device"]
+        self.history_length = config["history_length"]
 
     def step(self, action):
         observation, reward, done, info = self.env.step(action)
@@ -72,6 +73,19 @@ class FrameStack(Wrapper):
         obs = np.array(state)
         return obs
 
+
+def mkdir(base, name):
+    """
+    Creates a direction if its not exist
+    Args:
+       param1(string): base first part of pathname
+       param2(string): name second part of pathname
+    Return: pathname 
+    """
+    path = os.path.join(base, name)
+    if not os.path.exists(path):
+        os.makedirs(path)
+    return path
 
 
 

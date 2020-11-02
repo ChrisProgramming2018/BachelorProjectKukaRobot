@@ -16,25 +16,12 @@ from agent import TQC
 from torch.utils.tensorboard import SummaryWriter
 from PIL import Image
 from gym_grasping.envs.robot_sim_env import RobotSimEnv
-from helper import FrameStack
+from helper import FrameStack, mkdir
 
 
 
-def mkdir(base, name):
-    """
-    Creates a direction if its not exist
-    Args:
-       param1(string): base first part of pathname
-       param2(string): name second part of pathname
-    Return: pathname 
-    """
-    path = os.path.join(base, name)
-    if not os.path.exists(path):
-        os.makedirs(path)
-    return path
 
-
-def evaluate_policy(policy, writer, total_timesteps, args, env, episode=5):
+def evaluate_policy(policy, writer, total_timesteps, size, env, episode=5):
     """
     
     
@@ -45,7 +32,6 @@ def evaluate_policy(policy, writer, total_timesteps, args, env, episode=5):
     """
 
     path = mkdir("","eval/" + str(total_timesteps) + "/")
-    size = args.size
     print(path)
     avg_reward = 0.
     seeds = [x for x in range(episode)]
@@ -56,18 +42,19 @@ def evaluate_policy(policy, writer, total_timesteps, args, env, episode=5):
         env.seed(s)
         obs = env.reset()
         done = False
-        for step in range(args.max_episode_steps):
+        for step in range(50):
             action = policy.select_action(np.array(obs))
             
             obs, reward, done, _ = env.step(action)
             #cv2.imshow("wi", cv2.resize(obs[:,:,::-1], (300,300)))
             # frame = cv2.imwrite("{}/wi{}.png".format(path, step), np.array(obs))
             if done:
-                avg_reward += reward * args.reward_scalling
-                goal +=1
+                avg_reward += reward 
+                if step < 50:
+                    goal +=1
                 break
             #cv2.waitKey(10)
-            avg_reward += reward * args.reward_scalling
+            avg_reward += reward 
 
     avg_reward /= len(seeds)
     writer.add_scalar('Evaluation reward', avg_reward, total_timesteps)
@@ -110,11 +97,14 @@ def train_agent(config):
     dt_string = now.strftime("%d_%m_%Y_%H:%M:%S")
     torch.manual_seed(config["seed"])
     np.random.seed(config["seed"])
-    tensorboard_name = str(args.locexp) + '/runs/' + pathname
+    file_name = str(config["locexp"]) + "/pytorch_models/{}".format(str(config["env_name"]))    
+    pathname = dt_string 
+    tensorboard_name = str(config["locexp"]) + '/runs/' + pathname
+    print(tensorboard_name)
     writer = SummaryWriter(tensorboard_name)
     size = config["size"]
-    env= gym.make(args.env_name, renderer='egl')
-    env = FrameStack(env, args)
+    env= gym.make(config["env_name"], renderer='egl')
+    env = FrameStack(env, config)
     obs = env.reset()
     print("state ", obs.shape)
     state_dim = 200
@@ -123,13 +113,13 @@ def train_agent(config):
     print("action_dim ", action_dim)
     max_action = 1
     config["target_entropy"] =-np.prod(action_dim)
-    file_name = str(config["locexp"])  "/pytorch_models/{}".format(str(config["env_name"])     
     obs_shape = (config["history_length"], size, size)
     action_shape = (action_dim,)
     print("obs", obs_shape)
     print("act", action_shape)
-    policy = TQC(state_dim, action_dim, max_action, args)    
-    replay_buffer = ReplayBuffer(obs_shape, action_shape, int(args.buffer_size), args.image_pad, args.device)
+    policy = TQC(state_dim, action_dim, max_action, config)    
+    replay_buffer = ReplayBuffer(obs_shape, action_shape,
+    int(config["buffer_size"]), config["image_pad"], config["device"])
     total_timesteps = 0
     timesteps_since_eval = 0
     episode_num = 0
@@ -139,11 +129,11 @@ def train_agent(config):
     episode_reward = 0
     evaluations = []
     tb_update_counter = 0
-    evaluations.append(evaluate_policy(policy, writer, total_timesteps, args, env))
-    save_model = file_name + '-{}reward_{:.2f}-agent{}'.format(episode_num, evaluations[-1], args.policy) 
+    evaluations.append(evaluate_policy(policy, writer, total_timesteps, size, env))
+    save_model = file_name + '-{}reward_{:.2f}'.format(episode_num, evaluations[-1]) 
     policy.save(save_model)
     done_counter =  deque(maxlen=100)
-    while total_timesteps <  args.max_timesteps:
+    while total_timesteps <  config["max_timesteps"]:
         tb_update_counter += 1
         # If the episode is done
         if done:
@@ -151,7 +141,7 @@ def train_agent(config):
             #env.seed(random.randint(0, 100))
             scores_window.append(episode_reward)
             average_mean = np.mean(scores_window)
-            if tb_update_counter > args.tensorboard_freq:
+            if tb_update_counter > config["tensorboard_freq"]:
                 print("Write tensorboard")
                 tb_update_counter = 0
                 writer.add_scalar('Reward', episode_reward, total_timesteps)
@@ -173,13 +163,9 @@ def train_agent(config):
                 print(text)
                 write_into_file(pathname, text)
             # We evaluate the episode and we save the policy
-            if timesteps_since_eval >= args.eval_freq:
-                timesteps_since_eval %= args.eval_freq 
-                evaluations.append(evaluate_policy(policy, writer, total_timesteps, args,  env))
-                torch.manual_seed(args.seed)
-                np.random.seed(args.seed)
-                evaluations.append(evaluate_policy(policy, writer, total_timesteps, args, env))
-                save_model = file_name + '-{}reward_{:.2f}-agent{}'.format(episode_num, evaluations[-1], args.policy) 
+            if timesteps_since_eval >= config["eval_freq"]:
+                timesteps_since_eval %= config["eval_freq"]
+                evaluations.append(evaluate_policy(policy, writer, total_timesteps, size,  env))
                 policy.save(save_model)
             # When the training step is done, we reset the state of the environment
             obs = env.reset()
@@ -190,7 +176,7 @@ def train_agent(config):
             episode_reward = 0
             episode_timesteps = 0
         # Before 10000 timesteps, we play random actions
-        if total_timesteps < args.start_timesteps:
+        if total_timesteps < config["start_timesteps"]:
             action = env.action_space.sample()
         else: # After 10000 timesteps, we switch to the model
             action = policy.select_action(obs)
@@ -203,26 +189,20 @@ def train_agent(config):
         
         # We check if the episode is done
         #done_bool = 0 if episode_timesteps + 1 == env._max_episode_steps else float(done)
-        done_bool = 0 if episode_timesteps + 1 == args.max_episode_steps else float(done)
-        if episode_timesteps + 1 == args.max_episode_steps:
+        done_bool = 0 if episode_timesteps + 1 == config["max_episode_steps"] else float(done)
+        if episode_timesteps + 1 == config["max_episode_steps"]:
             done = True
         # We increase the total reward
-        reward = reward * args.reward_scalling
         episode_reward += reward
         # We store the new transition into the Experience Replay memory (ReplayBuffer)
-        if args.debug:
-            print("add to buffer next_obs ", obs.shape)
-            print("add to bufferobs ", new_obs.shape)
         replay_buffer.add(obs, action, reward, new_obs, done, done_bool)
         # We update the state, the episode timestep, the total timesteps, and the timesteps since the evaluation of the policy
         obs = new_obs
-        if total_timesteps > args.start_timesteps:
-            for i in range(args.repeat_update):
+        if total_timesteps > config["start_timesteps"]:
+            for i in range(1):
                 policy.train(replay_buffer, writer, 1)
         episode_timesteps += 1
         total_timesteps += 1
         timesteps_since_eval += 1
 
 
-    # We add the last policy evaluation to our list of evaluations and we save our model
-    evaluations.append(evaluate_policy(policy, writer, total_timesteps, args, episode_num))

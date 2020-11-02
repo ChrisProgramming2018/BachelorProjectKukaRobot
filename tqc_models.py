@@ -9,9 +9,9 @@ from torch.nn.functional import relu, logsigmoid
 
 
 class Actor(Module):
-    def __init__(self, state_dim, action_dim, args):
+    def __init__(self, state_dim, action_dim, config):
         super().__init__()
-        self.device = args.device
+        self.device = config["device"]
         self.log_std_min_max = (-20, 2)
         self.action_dim = action_dim
         self.net = Mlp(state_dim, [256, 256], 2 * action_dim)
@@ -38,11 +38,11 @@ class Actor(Module):
 
 
 class Critic(Module):
-    def __init__(self, state_dim, action_dim, args):
+    def __init__(self, state_dim, action_dim, config):
         super().__init__()
         self.nets = []
-        self.n_quantiles = args.n_quantiles
-        self.n_nets =  args.n_nets
+        self.n_quantiles = config["n_quantiles"]
+        self.n_nets =  config["n_nets"]
         for i in range(self.n_nets):
             net = Mlp(state_dim + action_dim, [512, 512, 512], self.n_quantiles)
             self.add_module(f'qf{i}', net)
@@ -89,10 +89,10 @@ class Mlp(Module):
         return output
 
 class Encoder(nn.Module):
-    def __init__(self, args, D_out=200,conv_channels=[16, 32], kernel_sizes=[8, 4], strides=[4,2]):
+    def __init__(self, config, D_out=200,conv_channels=[16, 32], kernel_sizes=[8, 4], strides=[4,2]):
         super(Encoder, self).__init__()
         # Defining the first Critic neural network
-        channels = args.history_length
+        channels = config["history_length"]
         self.conv_1 =  torch.nn.Conv2d(channels, conv_channels[0], kernel_sizes[0], strides[0])
         self.relu_1 = torch.nn.ReLU()
         self.conv_2 =  torch.nn.Conv2d(conv_channels[0], conv_channels[1], kernel_sizes[1], strides[1])
