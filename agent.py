@@ -38,22 +38,6 @@ class TQC(object):
         self.step = 0
 
     
-    def train_cnn(self, replay_buffer, agent, writer):
-        obs, obs_aug = replay_buffer.sample(self.batch_size)
-        # normalize state
-        obs = obs.div_(255)
-        obs_aug = obs_aug.div_(255)
-        state = agent.encoder.create_vector(obs)
-        state_aug = self.encoder.create_vector(obs_aug)
-        loss = F.mse_loss(state, state_aug)
-        self.encoder_optimizer.zero_grad()
-        loss.backward()
-        self.encoder_optimizer.step()
-        self.step += 1
-        if self.step % 1000 == 0:
-            writer.add_scalar('loss', loss, self.step)
-
-
 
     def train(self, replay_buffer,  writer, iterations):
         self.step += 1
@@ -61,9 +45,9 @@ class TQC(object):
             self.write_tensorboard = 1 - self.write_tensorboard
         for it in range(iterations):
             # Step 4: We sample a batch of transitions (s, s’, a, r) from the memoy
-            sys.stdout = open(os.devnull, "w")
+            # sys.stdout = open(os.devnull, "w")
             obs, action, reward, next_obs, not_done, obs_aug, obs_next_aug = replay_buffer.sample(self.batch_size)
-            sys.stdout = sys.__stdout__
+            #sys.stdout = sys.__stdout__
             
             # for augment 1
             obs = obs.div_(255)
@@ -133,6 +117,14 @@ class TQC(object):
         obs = obs.div_(255)
         state = self.encoder.create_vector(obs.unsqueeze(0))
         return self.actor.select_action(state)
+    
+    def select_action_batch(self, obs):
+        obs = torch.FloatTensor(obs).to(self.device)
+        obs = obs.div_(255)
+        state = self.encoder.create_vector(obs)
+        #return np.expand_dims(self.actor.select_action(state), axis=0)
+        actions =  self.actor.select_action_batch(state)
+        return actions
 
                 
 

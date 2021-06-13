@@ -15,7 +15,7 @@ from torch.autograd import Variable
 from collections import deque
 from datetime import datetime
 from train import train_agent
-
+from helper import write_into_file
 
 def main(args):
     """ Starts different tests
@@ -33,6 +33,12 @@ def main(args):
     print("Created model dir {} ".format(dir_model))
     with open (args.param, "r") as f:
         param = json.load(f)
+    parameter = ""
+    for n, p in enumerate(param):
+        print(str(p) + ": " + str(param[p]))
+        parameter += str(p) + ": " + str(param[p]) + "\n"
+
+    write_into_file(res_path + "/parameter", parameter)    
     train_agent(param)
 
 

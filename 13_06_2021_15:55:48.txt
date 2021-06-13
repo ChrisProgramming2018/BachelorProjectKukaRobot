@@ -1,0 +1,2 @@
+Total Timesteps: 50 Episode Num: 2 Episode steps 50 Goal last 100 ep : 0 Reward: -14.28  Average Re: -7.14 Time: (0.0, 0.0, 6.75)Replay_buffer_size : 200 
+Total Timesteps: 100 Episode Num: 3 Episode steps 50 Goal last 100 ep : 0 Reward: -14.63  Average Re: -9.64 Time: (0.0, 0.0, 13.62)Replay_buffer_size : 400 

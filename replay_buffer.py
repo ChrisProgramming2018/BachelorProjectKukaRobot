@@ -19,18 +19,16 @@ class ReplayBuffer(object):
         self.next_obses = np.empty((capacity, *obs_shape), dtype=np.uint8)
         self.actions = np.empty((capacity, *action_shape), dtype=np.float32)
         self.rewards = np.empty((capacity, 1), dtype=np.float32)
-        self.not_dones = np.empty((capacity, 1), dtype=np.float32)
-        self.not_dones_no_max = np.empty((capacity, 1), dtype=np.float32)
+        self.not_dones = np.empty((capacity, 1), dtype=np.bool)
+        self.not_dones_no_max = np.empty((capacity, 1), dtype=np.bool)
 
         self.idx = 0
         self.full = False
-        self.k = 0
 
     def __len__(self):
         return self.capacity if self.full else self.idx
 
     def add(self, obs, action, reward, next_obs, done, done_no_max):
-        self.k +=1
         np.copyto(self.obses[self.idx], obs)
         np.copyto(self.actions[self.idx], action)
         np.copyto(self.rewards[self.idx], reward)
@@ -41,29 +39,35 @@ class ReplayBuffer(object):
         self.idx = (self.idx + 1) % self.capacity
         self.full = self.full or self.idx == 0
 
+    
+    def add_batch(self, obs, action, reward, next_obs, done, done_no_max):
+        for i in range(obs.shape[0]):
+            np.copyto(self.obses[self.idx], obs[i])
+            np.copyto(self.actions[self.idx], action[i])
+            np.copyto(self.rewards[self.idx], reward[i])
+            np.copyto(self.next_obses[self.idx], next_obs[i])
+            np.copyto(self.not_dones[self.idx], not done[i])
+            np.copyto(self.not_dones_no_max[self.idx], not done_no_max[i])
+            self.idx = (self.idx + 1) % self.capacity
 
-    def get_size():
-        pass
 
 
     def sample(self, batch_size):
         idxs = np.random.randint(0, self.capacity if self.full else self.idx, size=batch_size)
-    
+
         obses = self.obses[idxs]
         next_obses = self.next_obses[idxs]
         obses_aug = obses.copy()
         next_obses_aug = next_obses.copy()
 
+
         obses = torch.as_tensor(obses, device=self.device).float()
         next_obses = torch.as_tensor(next_obses, device=self.device).float()
         obses_aug = torch.as_tensor(obses_aug, device=self.device).float()
-        next_obses_aug = torch.as_tensor(next_obses_aug,
-                                         device=self.device).float()
+        next_obses_aug = torch.as_tensor(next_obses_aug, device=self.device).float()
         actions = torch.as_tensor(self.actions[idxs], device=self.device)
         rewards = torch.as_tensor(self.rewards[idxs], device=self.device)
-        not_dones_no_max = torch.as_tensor(self.not_dones_no_max[idxs],
-                                           device=self.device)
-
+        not_dones_no_max = torch.as_tensor(self.not_dones_no_max[idxs], device=self.device)
         obses = self.aug_trans(obses)
         next_obses = self.aug_trans(next_obses)
         
@@ -72,30 +76,6 @@ class ReplayBuffer(object):
 
 
         return obses, actions, rewards, next_obses, not_dones_no_max, obses_aug, next_obses_aug
-
-
-    def get_last_k_trajectories(self):
-        """    """
-        if self.full:
-            pass
-        idxs = [x for x in range(self.idx - self.k, self.idx)]
-        # print(idxs)
-        obses = self.obses[idxs]
-        obses_aug = obses.copy()
-
-        obses = torch.as_tensor(obses, device=self.device).float()
-        obses_aug = torch.as_tensor(obses_aug, device=self.device).float()
-        actions = torch.as_tensor(self.actions[idxs], device=self.device)
-        rewards = torch.as_tensor(self.rewards[idxs], device=self.device)
-        not_dones_no_max = torch.as_tensor(self.not_dones_no_max[idxs],
-                                           device=self.device)
-
-        obses = self.aug_trans(obses)
-        obses_aug = self.aug_trans(obses)
-        self.k = 0
-        return obses,  obses_aug, actions, rewards, not_dones_no_max
-
-
 
 
 

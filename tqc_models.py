@@ -34,6 +34,11 @@ class Actor(Module):
         action, _ = self.forward(obs)
         action = action[0].cpu().detach().numpy()
         return action
+    
+    def select_action_batch(self, obs):
+        action, _ = self.forward(obs)
+        action = action.cpu().detach().numpy()
+        return action
 
 
 

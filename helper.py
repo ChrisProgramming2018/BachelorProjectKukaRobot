@@ -2,9 +2,11 @@ import os
 import cv2
 import torch
 import numpy as np
+import gym
 from gym.spaces import Box
 from gym import Wrapper
 from collections import deque
+from stable_baselines.common import set_global_seeds, make_vec_env
 
 
 
@@ -98,3 +100,19 @@ def write_into_file(pathname, text):
         myfile.write(text)
         myfile.write('\n')
 
+
+def make_env(config, rank, seed=0):
+    """
+    Utility function for multiprocessed env.
+    :param env_id: (str) the environment ID
+    :param num_env: (int) the number of environments you wish to have in subprocesses
+    :param seed: (int) the inital seed for RNG
+    :param rank: (int) index of the subprocess
+    """
+    def _init():
+        env = gym.make(config["env_name"], renderer='egl')
+        env = FrameStack(env, config)
+        env.seed(seed + rank)
+        return env
+    set_global_seeds(seed)
+    return _init
